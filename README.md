@@ -26,24 +26,40 @@ We can use a special fenced `math_preamble` code block to include LaTeX packages
 
 ```markdown
 
-```math_preamble
-\usepackage{tikz}
+  ```math_preamble
+  \usepackage{tikz}
+  ```
+
+  Later on in the tikz we can draw a circle with tikz:
+
+  ```math
+  \begin{tikzpicture}
+    \draw (0,0) circle (1cm);
+  \end{tikzpicture}
+  ```
+
 ```
 
-Later on in the tikz we can draw a circle with tikz:
+The `site_url` configuration option in `mkdocs.yml` is used to determine the correct
+URL for the generated SVG images.
 
-```math
-\begin{tikzpicture}
-  \draw (0,0) circle (1cm);
-\end{tikzpicture}
+The svgs are generated with the `--currentcolor` option to `dvisvgm`, so it is possible to sets
+their colors with CSS. For example, to make the math images blue, you can add the following CSS rule:
+
+```css
+
+svg {
+    color: blue;
+}
+
 ```
 
-```
-
-## Configuration:
+## Configuration
  
+This plugin can be configured via the `mkdocs.yml` configuration file. The following
+options are available under the `plugins` section:
  
  - 'dvisvgm_path': Path to the dvisvgm tool. Default: `dvisvgm`
- - 'pdflatex_path': Path to the pdflatex tool. Default: `pdflatex`
+ - 'latex_path': Path to the latex tool. Default: `latex`
  - 'asset_subdir': Subdirectory in the site output directory to store generated images
  - 'temp_dir': Directory to use for temporary files, if enabled will dump files for inspection. Default: system temp directory.

@@ -1,0 +1,20 @@
+[project]
+name = "mkdocs-latex-math"
+version = "0.1.0"
+description = "MkDocs plugin to render embedded math using LaTeX."
+readme = "README.md"
+requires-python = ">=3.8"
+authors = [{name = "Maurice Laveaux", email = "m.laveaux@tue.nl"}]
+license = "BSL-1.0"
+license-files = ["LICENSE"]
+dependencies = ["mkdocs >= 1.4"]
+
+[project.urls]
+Repository = "https://github.com/MERCorg/mkdocs-latex-math"
+
+[project.entry-points."mkdocs.plugins"]
+latex-math = "latex_math:LatexMathPlugin"
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"

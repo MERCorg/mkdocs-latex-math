@@ -72,8 +72,9 @@ class LatexMathPlugin(BasePlugin):
     ) -> str:
         svg_path: str = os.path.join(out_dir, basename + ".svg")
         if os.path.exists(svg_path):
-            # Skip rendering if SVG already exists, since we hash the input.
-            return svg_path
+            # If SVG already exists, return its contents to allow inline embedding.
+            with open(svg_path, "r", encoding="utf-8") as f:
+                return f.read()
 
         # Minimal document using preview to tightly crop the output
         env = r"""\documentclass{article}
@@ -136,7 +137,9 @@ class LatexMathPlugin(BasePlugin):
                     f"dvisvgm failed with code {proc.returncode} \n {proc.stdout.decode('utf-8')}"
                 )
 
-            return svg_path
+            # Read and return the generated SVG contents for inline embedding.
+            with open(svg_path, "r", encoding="utf-8") as f:
+                return f.read()
 
     def _sanitize_alt(self, text: str) -> str:
         """Sanitize alt text for the img alt tag."""
@@ -162,11 +165,11 @@ class LatexMathPlugin(BasePlugin):
                 body: str = m.group("body").rstrip()
                 h: str = self._hash(body)
                 basename: str = "latex-" + h
-                svg: str = self._render_to_svg(
+                svg_markup: str = self._render_to_svg(
                     body, pdflatex_preamble, out_dir, basename
                 )
-                alt: str = self._sanitize_alt(body)
-                return f'\n<img src="{self._url_path(site_url, svg)}">\n'
+                # Return the SVG markup inline so it can be recolored via CSS.
+                return f"\n{svg_markup}\n"
             except Exception as e:
                 print(f"Error processing fenced pdflatex: {e}")
                 return m.group(0)  # return original on error
@@ -188,11 +191,11 @@ class LatexMathPlugin(BasePlugin):
 
                 h: str = self._hash(body)
                 basename: str = "latex-" + h
-                svg: str = self._render_to_svg(
+                svg_markup: str = self._render_to_svg(
                     body, pdflatex_preamble, out_dir, basename
                 )
-                alt: str = self._sanitize_alt(body)
-                return f'<img src="{self._url_path(site_url, svg)}">'
+                # Inline SVG for inline math
+                return svg_markup
             except Exception as e:
                 print(f"Error processing display math: {e}")
                 return m.group(0)  # return original on error

@@ -80,8 +80,11 @@ class LatexMathPlugin(BasePlugin):
         env = r"""\documentclass{article}
 \usepackage[active,tightpage]{preview}
 \usepackage{amsmath,amssymb}
+\usepackage{roboto}
 %s
 \begin{document}
+\fontsize{12pt}{14pt}\selectfont
+
 \begin{preview}
 %s
 \end{preview}

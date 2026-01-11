@@ -166,7 +166,7 @@ class LatexMathPlugin(BasePlugin):
                     body, pdflatex_preamble, out_dir, basename
                 )
                 alt: str = self._sanitize_alt(body)
-                return f'\n<img src="{self._url_path(site_url, svg)}" alt="{alt}">\n'
+                return f'\n<img src="{self._url_path(site_url, svg)}">\n'
             except Exception as e:
                 print(f"Error processing fenced pdflatex: {e}")
                 return m.group(0)  # return original on error
@@ -176,8 +176,8 @@ class LatexMathPlugin(BasePlugin):
     def _replace_display_math(
         self, md: str, out_dir: str, site_url: str, pdflatex_preamble: str
     ) -> str:
-        """Replace $$...$$ (multiline)"""
-        disp_re: Pattern[str] = re.compile(r"(?<!\\)\$\$(.+?)(?<!\\)\$\$", re.S)
+        """Replace $...$ (inline, same line)"""
+        disp_re: Pattern[str] = re.compile(r'\$([^\n]+?)\$')
 
         def repl(m: Match[str]) -> str:
             try:
@@ -192,7 +192,7 @@ class LatexMathPlugin(BasePlugin):
                     body, pdflatex_preamble, out_dir, basename
                 )
                 alt: str = self._sanitize_alt(body)
-                return f'<img src="{self._url_path(site_url, svg)}" alt="{alt}" style="display:block;margin:0.4em 0;">'
+                return f'<img src="{self._url_path(site_url, svg)}">'
             except Exception as e:
                 print(f"Error processing display math: {e}")
                 return m.group(0)  # return original on error

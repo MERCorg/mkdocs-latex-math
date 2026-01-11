@@ -12,9 +12,9 @@ This plugin requires a [LaTeX](https://www.latex-project.org/) installation with
 `pdflatex` and `dvisvgm` available in the system `PATH`, and any packages
 included in the math expressions.
 
-This plugin renders inline math, delimited by single dollar signs `$...$`, or
-double dollar signs `$$...$$` for block math. Additionally, fenced code blocks with the info
-string `math` are also rendered. For example:
+This plugin renders inline math, delimited by single dollar signs `$...$`.
+Additionally, fenced code blocks with the info string `math` are also rendered.
+For example:
 
 ```markdown
 

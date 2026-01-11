@@ -39,10 +39,6 @@ class LatexMathPlugin(BasePlugin):
         )
         os.makedirs(site_assets_dir, exist_ok=True)
 
-        site_url: str = os.path.join(
-            config.get("site_url", ""), self.config["asset_subdir"]
-        )
-
         if self.config["temp_dir"]:
             os.makedirs(self.config["temp_dir"], exist_ok=True)
 
@@ -51,19 +47,19 @@ class LatexMathPlugin(BasePlugin):
 
         # First replace fenced code blocks with info 'math'.
         markdown = self._replace_fenced_math(
-            markdown, site_assets_dir, site_url, math_preamble
+            markdown, site_assets_dir, math_preamble
         )
 
-        # Then handle $$...$$ display math
+        # Then handle $...$ inline math
         markdown = self._replace_display_math(
-            markdown, site_assets_dir, site_url, math_preamble
+            markdown, site_assets_dir, math_preamble
         )
 
         return markdown
 
     def _hash(self, tex: str) -> str:
         h = hashlib.sha1()
-        h.update(b"pdflatex_v1")
+        h.update(b"mkdocs-latex-math")
         h.update(tex.encode("utf-8"))
         return h.hexdigest()
 
@@ -155,7 +151,7 @@ class LatexMathPlugin(BasePlugin):
         return site_url + "/" + os.path.basename(path)
 
     def _replace_fenced_math(
-        self, md: str, out_dir: str, site_url: str, pdflatex_preamble: str
+        self, md: str, out_dir: str, pdflatex_preamble: str
     ) -> str:
         """Replace fenced code blocks: ```math\n...\n```"""
         fence_re: Pattern[str] = re.compile(
@@ -180,7 +176,7 @@ class LatexMathPlugin(BasePlugin):
         return fence_re.sub(repl, md)
 
     def _replace_display_math(
-        self, md: str, out_dir: str, site_url: str, pdflatex_preamble: str
+        self, md: str, out_dir: str, pdflatex_preamble: str
     ) -> str:
         """Replace $...$ (inline, same line)"""
         disp_re: Pattern[str] = re.compile(r'\$([^\n]+?)\$')

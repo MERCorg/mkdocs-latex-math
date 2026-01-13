@@ -79,13 +79,13 @@ class LatexMathPlugin(BasePlugin):
 \usepackage{roboto}
 %s
 \begin{document}
-\fontsize{12pt}{14pt}\selectfont
+\fontsize{14pt}{14pt}\selectfont
 
-\begin{preview}
-%s
-\end{preview}
-\end{document}
-"""
+    \begin{preview}
+    %s
+    \end{preview}
+    \end{document}
+    """
         tex: str = env % (pdflatex_preamble, tex_body)
 
         with tempfile.TemporaryDirectory(

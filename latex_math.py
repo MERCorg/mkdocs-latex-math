@@ -193,8 +193,8 @@ class LatexMathPlugin(BasePlugin):
                 svg_markup: str = self._render_to_svg(
                     body, pdflatex_preamble, out_dir, basename
                 )
-                # Inline SVG for inline math
-                return svg_markup
+                # Inline SVG for inline math (strip newlines to keep it inline)
+                return svg_markup.replace('\n', '')
             except Exception as e:
                 print(f"Error processing display math: {e}")
                 return m.group(0)  # return original on error

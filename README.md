@@ -41,9 +41,10 @@ Later on in the tikz we can draw a circle with tikz:
 '''
 ```
 
-The svgs are generated with the `--currentcolor` option to `dvisvgm`, so it is
-possible to set their colors with CSS. For example, to make the math images
-blue, you can add the following CSS rule:
+The svgs are generated with the `--currentcolor` option to `dvisvgm`, so they
+will pick up the current text color, but since they are embedded as inline SVGs,
+it is also possible to set their colors with CSS. For example, to make the math
+images blue, you can add the following CSS rule:
 
 ```css
 svg {
@@ -53,10 +54,8 @@ svg {
 
 ## Configuration
  
-This plugin can be configured via the `mkdocs.yml` configuration file.The
-`site_url` configuration option in `mkdocs.yml` is used to determine the correct
-URL for the generated SVG images. Furthermore, there are some specific options
-for this plugin:
+This plugin can be configured via the `mkdocs.yml` configuration file. There are
+some specific options for this plugin:
  
  - 'dvisvgm_path': Path to the dvisvgm tool. Default: `dvisvgm`
  - 'latex_path': Path to the latex tool. Default: `latex`

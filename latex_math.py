@@ -18,13 +18,12 @@ class LatexMathPlugin(BasePlugin):
     """
 
     config_scheme = (
-        ("asset_subdir", config_options.Type(str, default="assets/latex")),
         (
             "latex_path",
             config_options.Type(str, default="latex"),
         ),
         ("dvisvgm_path", config_options.Type(str, default="dvisvgm")),
-        ("temp_dir", config_options.Type(str, default="")),
+        ("output_dir", config_options.Type(str, default="tmp")),
     )
 
     def on_page_markdown(
@@ -34,26 +33,20 @@ class LatexMathPlugin(BasePlugin):
         Override of the BasePlugin method to process the page markdown to replace LaTeX math with SVG images.
         """
 
-        site_assets_dir: str = os.path.join(
-            config["site_dir"], self.config["asset_subdir"]
+        # Create output directory in site_dir for temporary LaTeX build files
+        temp_output_dir: str = os.path.join(
+            config["site_dir"], self.config["output_dir"]
         )
-        os.makedirs(site_assets_dir, exist_ok=True)
-
-        if self.config["temp_dir"]:
-            os.makedirs(self.config["temp_dir"], exist_ok=True)
+        os.makedirs(temp_output_dir, exist_ok=True)
 
         # Extract the preamble (if any) and remove its fenced block from the markdown
         markdown, math_preamble = self._extract_math_preamble(markdown)
 
         # First replace fenced code blocks with info 'math'.
-        markdown = self._replace_fenced_math(
-            markdown, site_assets_dir, math_preamble
-        )
+        markdown = self._replace_fenced_math(markdown, math_preamble, temp_output_dir)
 
         # Then handle $...$ inline math
-        markdown = self._replace_display_math(
-            markdown, site_assets_dir, math_preamble
-        )
+        markdown = self._replace_display_math(markdown, math_preamble, temp_output_dir)
 
         return markdown
 
@@ -64,9 +57,10 @@ class LatexMathPlugin(BasePlugin):
         return h.hexdigest()
 
     def _render_to_svg(
-        self, tex_body: str, pdflatex_preamble: str, out_dir: str, basename: str
+        self, tex_body: str, pdflatex_preamble: str, basename: str, temp_output_dir: str
     ) -> str:
-        svg_path: str = os.path.join(out_dir, basename + ".svg")
+        build_dir = os.path.join(temp_output_dir, basename)
+        svg_path: str = os.path.join(build_dir, basename + ".svg")
         if os.path.exists(svg_path):
             # If SVG already exists, return its contents to allow inline embedding.
             with open(svg_path, "r", encoding="utf-8") as f:
@@ -74,71 +68,71 @@ class LatexMathPlugin(BasePlugin):
 
         # Minimal document using preview to tightly crop the output
         env = r"""\documentclass{article}
-\usepackage[active,tightpage]{preview}
 \usepackage{amsmath,amssymb}
-\usepackage{roboto}
+\usepackage[active,tightpage,align=middle]{preview}
 %s
 \begin{document}
 \fontsize{14pt}{14pt}\selectfont
 
-    \begin{preview}
-    %s
-    \end{preview}
-    \end{document}
+\begin{preview}
+%s
+\end{preview}
+\end{document}
     """
         tex: str = env % (pdflatex_preamble, tex_body)
 
-        with tempfile.TemporaryDirectory(
-            dir=self.config["temp_dir"] or None, delete="temp_dir" not in self.config
-        ) as td:
-            tex_file: str = os.path.join(td, basename + ".tex")
-            with open(tex_file, "w", encoding="utf-8") as f:
-                f.write(tex)
+        # Use site_dir/output_dir for LaTeX build files
+        build_dir = os.path.join(temp_output_dir, basename)
+        os.makedirs(build_dir, exist_ok=True)
 
-            proc = subprocess.run(
-                [
-                    self.config["latex_path"],
-                    "-interaction=nonstopmode",
-                    "-halt-on-error",
-                    "-output-directory",
-                    td,
-                    tex_file,
-                ],
-                check=False,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
+        tex_file: str = os.path.join(build_dir, basename + ".tex")
+        with open(tex_file, "w", encoding="utf-8") as f:
+            f.write(tex)
+
+        proc = subprocess.run(
+            [
+                self.config["latex_path"],
+                "-interaction=nonstopmode",
+                "-halt-on-error",
+                "-output-directory",
+                build_dir,
+                tex_file,
+            ],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+
+        if proc.returncode != 0:
+            raise RuntimeError(
+                f"latex failed with code {proc.returncode} \n{proc.stdout.decode('utf-8')}"
             )
 
-            if proc.returncode != 0:
-                raise RuntimeError(
-                    f"latex failed with code {proc.returncode} \n{proc.stdout.decode('utf-8')}"
-                )
+        dvi_file: str = os.path.join(build_dir, basename + ".dvi")
 
-            dvi_file: str = os.path.join(td, basename + ".dvi")
+        # Run dvisvgm to convert DVI to SVG
+        proc = subprocess.run(
+            [
+                self.config["dvisvgm_path"],
+                "--no-fonts",
+                "--currentcolor",
+                dvi_file,
+                "-o",
+                svg_path,
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            check=False,
+        )
 
-            # Run dvisvgm to convert DVI to SVG
-            proc = subprocess.run(
-                [
-                    self.config["dvisvgm_path"],
-                    "--no-fonts",
-                    "--currentcolor",
-                    dvi_file,
-                    "-o",
-                    svg_path,
-                ],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                check=False,
+        if proc.returncode != 0:
+            raise RuntimeError(
+                f"dvisvgm failed with code {proc.returncode} \n {proc.stdout.decode('utf-8')}"
             )
 
-            if proc.returncode != 0:
-                raise RuntimeError(
-                    f"dvisvgm failed with code {proc.returncode} \n {proc.stdout.decode('utf-8')}"
-                )
-
-            # Read and return the generated SVG contents for inline embedding.
-            with open(svg_path, "r", encoding="utf-8") as f:
-                return f.read()
+        # Read and return the generated SVG contents for inline embedding.
+        with open(svg_path, "r", encoding="utf-8") as f:
+            return f.read()
 
     def _sanitize_alt(self, text: str) -> str:
         """Sanitize alt text for the img alt tag."""
@@ -146,12 +140,8 @@ class LatexMathPlugin(BasePlugin):
         alt = re.sub(r"\s+", " ", alt)
         return (alt[:120] + "…") if len(alt) > 120 else alt
 
-    def _url_path(self, site_url: str, path: str) -> str:
-        """Convert a full file path to a site-relative path for use in the img src attribute."""
-        return site_url + "/" + os.path.basename(path)
-
     def _replace_fenced_math(
-        self, md: str, out_dir: str, pdflatex_preamble: str
+        self, md: str, pdflatex_preamble: str, temp_output_dir: str
     ) -> str:
         """Replace fenced code blocks: ```math\n...\n```"""
         fence_re: Pattern[str] = re.compile(
@@ -165,7 +155,7 @@ class LatexMathPlugin(BasePlugin):
                 h: str = self._hash(body)
                 basename: str = "latex-" + h
                 svg_markup: str = self._render_to_svg(
-                    body, pdflatex_preamble, out_dir, basename
+                    body, pdflatex_preamble, basename, temp_output_dir
                 )
                 # Return the SVG markup inline so it can be recolored via CSS.
                 return f"\n{svg_markup}\n"
@@ -176,10 +166,10 @@ class LatexMathPlugin(BasePlugin):
         return fence_re.sub(repl, md)
 
     def _replace_display_math(
-        self, md: str, out_dir: str, pdflatex_preamble: str
+        self, md: str, pdflatex_preamble: str, temp_output_dir: str
     ) -> str:
         """Replace $...$ (inline, same line)"""
-        disp_re: Pattern[str] = re.compile(r'\$([^\n]+?)\$')
+        disp_re: Pattern[str] = re.compile(r"\$([^\n]+?)\$")
 
         def repl(m: Match[str]) -> str:
             try:
@@ -191,10 +181,10 @@ class LatexMathPlugin(BasePlugin):
                 h: str = self._hash(body)
                 basename: str = "latex-" + h
                 svg_markup: str = self._render_to_svg(
-                    body, pdflatex_preamble, out_dir, basename
+                    body, pdflatex_preamble, basename, temp_output_dir
                 )
                 # Inline SVG for inline math (strip newlines to keep it inline)
-                return svg_markup.replace('\n', '')
+                return f'<span style="display: inline-block; vertical-align: middle;">{svg_markup.replace("\n", "")}</span>'
             except Exception as e:
                 print(f"Error processing display math: {e}")
                 return m.group(0)  # return original on error

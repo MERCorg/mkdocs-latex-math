@@ -2,3 +2,6 @@
 # Python cache files
 *.pyc
 *.egg-info
+
+# Ignore the generated build directory
+build/

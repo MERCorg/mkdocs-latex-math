@@ -17,6 +17,9 @@ class LatexMathPlugin(BasePlugin):
     to SVG images using pdflatex + dvisvgm.
     """
 
+    # Maps placeholder token -> HTML span for inline math, populated per page.
+    _svg_placeholders: dict[str, str]
+
     config_scheme = (
         (
             "latex_path",
@@ -33,6 +36,9 @@ class LatexMathPlugin(BasePlugin):
         Override of the BasePlugin method to process the page markdown to replace LaTeX math with SVG images.
         """
 
+        # Reset per-page placeholder map used by on_page_content.
+        self._svg_placeholders = {}
+
         # Create output directory in site_dir for temporary LaTeX build files
         temp_output_dir: str = os.path.join(
             config["site_dir"], self.config["output_dir"]
@@ -45,10 +51,24 @@ class LatexMathPlugin(BasePlugin):
         # First replace fenced code blocks with info 'math'.
         markdown = self._replace_fenced_math(markdown, math_preamble, temp_output_dir)
 
-        # Then handle $...$ inline math
+        # Replace $...$ inline math with opaque placeholders.
+        # Actual SVG substitution happens in on_page_content, after markdown→HTML
+        # conversion, to prevent Python-Markdown from treating <svg> as a block element.
         markdown = self._replace_display_math(markdown, math_preamble, temp_output_dir)
 
         return markdown
+
+    def on_page_content(
+        self, html: str, /, *, page: Any, config: Any, files: Any
+    ) -> str:
+        """
+        Substitute inline-math placeholders with their SVG <span> HTML.
+        This runs after markdown→HTML conversion, so <svg> is never seen by
+        the markdown block-level HTML parser.
+        """
+        for placeholder, span_html in self._svg_placeholders.items():
+            html = html.replace(placeholder, span_html)
+        return html
 
     def _hash(self, tex: str) -> str:
         h = hashlib.sha1()
@@ -168,7 +188,7 @@ class LatexMathPlugin(BasePlugin):
     def _replace_display_math(
         self, md: str, pdflatex_preamble: str, temp_output_dir: str
     ) -> str:
-        """Replace $...$ (inline, same line)"""
+        """Replace $...$ (inline, same line) with opaque placeholders."""
         disp_re: Pattern[str] = re.compile(r"\$([^\n]+?)\$")
 
         def repl(m: Match[str]) -> str:
@@ -183,8 +203,20 @@ class LatexMathPlugin(BasePlugin):
                 svg_markup: str = self._render_to_svg(
                     body, pdflatex_preamble, basename, temp_output_dir
                 )
-                # Inline SVG for inline math (strip newlines to keep it inline)
-                return f'<span style="display: inline-block; vertical-align: middle;">{svg_markup.replace("\n", "")}</span>'
+                # Strip the XML declaration so it does not appear in final HTML.
+                svg_markup = re.sub(r"<\?xml[^?]*\?>", "", svg_markup).strip()
+                # Collapse whitespace so the SVG is a single uninterrupted token.
+                svg_markup = svg_markup.replace("\n", "")
+                span_html = (
+                    f'<span style="display: inline-block; vertical-align: middle;">'
+                    f'{svg_markup}</span>'
+                )
+                # Store the HTML against a placeholder that Markdown won't
+                # interpret as block-level HTML.  The placeholder must not
+                # contain < > or & so it is safe inside a paragraph.
+                placeholder = f"LATEXSVGINLINE{h}"
+                self._svg_placeholders[placeholder] = span_html
+                return placeholder
             except Exception as e:
                 print(f"Error processing display math: {e}")
                 return m.group(0)  # return original on error

@@ -170,18 +170,14 @@ class LatexMathPlugin(BasePlugin):
         )
 
         def repl(m: Match[str]) -> str:
-            try:
-                body: str = m.group("body").rstrip()
-                h: str = self._hash(body)
-                basename: str = "latex-" + h
-                svg_markup: str = self._render_to_svg(
-                    body, pdflatex_preamble, basename, temp_output_dir
-                )
-                # Return the SVG markup inline so it can be recolored via CSS.
-                return f"\n{svg_markup}\n"
-            except Exception as e:
-                print(f"Error processing fenced pdflatex: {e}")
-                return m.group(0)  # return original on error
+            body: str = m.group("body").rstrip()
+            h: str = self._hash(body)
+            basename: str = "latex-" + h
+            svg_markup: str = self._render_to_svg(
+                body, pdflatex_preamble, basename, temp_output_dir
+            )
+            # Return the SVG markup inline so it can be recolored via CSS.
+            return f"\n{svg_markup}\n"
 
         return fence_re.sub(repl, md)
 
@@ -192,34 +188,30 @@ class LatexMathPlugin(BasePlugin):
         disp_re: Pattern[str] = re.compile(r"\$([^\n]+?)\$")
 
         def repl(m: Match[str]) -> str:
-            try:
-                body: str = m.group(1).strip()
+            body: str = m.group(1).strip()
 
-                # Add equation environment
-                body = f"${body}$"
+            # Add equation environment
+            body = f"${body}$"
 
-                h: str = self._hash(body)
-                basename: str = "latex-" + h
-                svg_markup: str = self._render_to_svg(
-                    body, pdflatex_preamble, basename, temp_output_dir
-                )
-                # Strip the XML declaration so it does not appear in final HTML.
-                svg_markup = re.sub(r"<\?xml[^?]*\?>", "", svg_markup).strip()
-                # Collapse whitespace so the SVG is a single uninterrupted token.
-                svg_markup = svg_markup.replace("\n", "")
-                span_html = (
-                    f'<span style="display: inline-block; vertical-align: middle;">'
-                    f'{svg_markup}</span>'
-                )
-                # Store the HTML against a placeholder that Markdown won't
-                # interpret as block-level HTML.  The placeholder must not
-                # contain < > or & so it is safe inside a paragraph.
-                placeholder = f"LATEXSVGINLINE{h}"
-                self._svg_placeholders[placeholder] = span_html
-                return placeholder
-            except Exception as e:
-                print(f"Error processing display math: {e}")
-                return m.group(0)  # return original on error
+            h: str = self._hash(body)
+            basename: str = "latex-" + h
+            svg_markup: str = self._render_to_svg(
+                body, pdflatex_preamble, basename, temp_output_dir
+            )
+            # Strip the XML declaration so it does not appear in final HTML.
+            svg_markup = re.sub(r"<\?xml[^?]*\?>", "", svg_markup).strip()
+            # Collapse whitespace so the SVG is a single uninterrupted token.
+            svg_markup = svg_markup.replace("\n", "")
+            span_html = (
+                f'<span style="display: inline-block; vertical-align: middle;">'
+                f'{svg_markup}</span>'
+            )
+            # Store the HTML against a placeholder that Markdown won't
+            # interpret as block-level HTML.  The placeholder must not
+            # contain < > or & so it is safe inside a paragraph.
+            placeholder = f"LATEXSVGINLINE{h}"
+            self._svg_placeholders[placeholder] = span_html
+            return placeholder
 
         return disp_re.sub(repl, md)
 
